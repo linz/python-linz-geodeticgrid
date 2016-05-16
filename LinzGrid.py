@@ -39,12 +39,12 @@ class LinzGrid( object ):
     by LINZ software such as SNAP and Landonline.
     '''
 
-    def __init__( self, format='GRID2L', headers=None, coordsys='',islatlon=True,resolution=None,csvfile=None):
+    def __init__( self, format='GRID2L', description=None, coordsys='',islatlon=True,resolution=None,csvfile=None):
         '''
         Create a LinzGrid object.  Optional parameters are:
 
         format: one of the format definition strings used by the grid format (eg GRID2L)
-        headers: headers describing the grid (see setHeaders)
+        description: header text describing the grid (see setHeaders)
         coordsys: code identifying the coordinate system of the lat/lon grid
         islatlon: identifies that the grid is latitude and longitude (ie not projection coords)
         resolution: precision of the grid data values (values are integer multiples of resolution)
@@ -54,7 +54,7 @@ class LinzGrid( object ):
             raise RuntimeError('Invalid grid format {0}'.format(format))
         
         self.format=format
-        self.setHeaders(headers or '')
+        self.setDescription(description or '')
         self.coordsys=coordsys
         self.islatlon=islatlon
         self.ngridx=0
@@ -69,7 +69,7 @@ class LinzGrid( object ):
         if csvfile:
             self.loadCsv(csvfile,resolution)
 
-    def setHeaders( self, *headers ):
+    def setDescription( self, *description ):
         '''
         Set the descriptive headers for the model.  The model may have
         up to three headers, each of which is a string. The final string
@@ -78,22 +78,22 @@ class LinzGrid( object ):
         or a set of string parameters.
         '''
         lines=[]
-        headers=list(headers)
+        description=list(description)
         try:
-            while headers:
-                h=headers.pop(0)
+            while description:
+                h=description.pop(0)
                 if isinstance(h,basestring):
                     lines.extend(h.split('\n'))
                 else:
-                    headers[0:0]=h
+                    description[0:0]=h
         except:
             raise
-            raise RuntimeError('Invalid headers')
+            raise RuntimeError('Invalid description')
         while len(lines) < 3:
             lines.append('')
         if len(lines) > 3:
             lines[2:]=['\n'.join(lines[2:])]
-        self.headers=lines
+        self.description=lines
 
     def _csvIterator(self, csvr):
         notblank=re.compile(r'\S')
@@ -326,14 +326,18 @@ class LinzGrid( object ):
             self._writerowv2a(irow,idim,gridfile,packer)
         return rowloc
 
-    def writebinary(self,gridfile):
+    def write(self,gridfile):
+        '''
+        Write the grid to a file handle. 
+        '''
         packer=_packer(self.format)
+        offset=gridfile.tell()
         writerow=self._writerowv2 if self.format in version2_formats else self._writerowv1
         gridfile.write(formats[self.format].encode('ascii'))
         # Create a pointer to the file index data, which is written immediately 
         # after the pointer in this case (unlike previous perl code)
-        indexptrloc=gridfile.tell()
-        gridfile.write(packer.packlong(indexptrloc+4))
+        indexptrloc=gridfile.tell()+4-offset
+        gridfile.write(packer.packlong(indexptrloc))
         gridfile.write(packer.packdouble(self.ymin))
         gridfile.write(packer.packdouble(self.ymax))
         gridfile.write(packer.packdouble(self.xmin))
@@ -344,9 +348,9 @@ class LinzGrid( object ):
         if self.format != 'GEOID':
             gridfile.write(packer.packshort(self.ndim))
             gridfile.write(packer.packshort(1 if self.islatlon else 0))
-        self._writestring(self.headers[0],gridfile,packer)
-        self._writestring(self.headers[1],gridfile,packer)
-        self._writestring(self.headers[2],gridfile,packer)
+        self._writestring(self.description[0],gridfile,packer)
+        self._writestring(self.description[1],gridfile,packer)
+        self._writestring(self.description[2],gridfile,packer)
         self._writestring(self.coordsys,gridfile,packer)
         # Save location of row index, and build dummy row index with
         # pointers to 0
@@ -354,15 +358,18 @@ class LinzGrid( object ):
         for i in range(self.ngridy):
             gridfile.write(packer.packlong(0))
         # Write the rows out and save the location of each row
-        rowlocs=[writerow(i,gridfile,packer) for i in range(self.ngridy)]
+        rowlocs=[writerow(i,gridfile,packer)-offset for i in range(self.ngridy)]
         # Update the row index in the binary file with the actual locations
         gridfile.seek(indexptrloc)
         for rowloc in rowlocs:
             gridfile.write(packer.packlong(rowloc))
 
-    def write( self, filename ):
+    def writefile( self, filename ):
+        '''
+        Write the grid to a file
+        '''
         with open(filename,'wb') as gridfile:
-            self.writebinary( gridfile )
+            self.write( gridfile )
 
     @staticmethod
     def main():
@@ -376,12 +383,12 @@ class LinzGrid( object ):
         parser.add_argument('-d','--description',action='append',help='Binary file descriptive header (up to 3)')
         args=parser.parse_args()
         linzgrid=LinzGrid(
-            headers=args.header,
+            description=args.description,
             coordsys=args.coordsys,
             format=args.format,
             resolution=args.resolution,
             csvfile=args.csv_grid_file)
-        linzgrid.write(args.linz_grid_file)
+        linzgrid.writefile(args.linz_grid_file)
         
 if __name__ == "__main__":
     LinzGrid.main()
