@@ -1,6 +1,7 @@
 
 from LINZ.DeformationModel import Model, Time
 from collections import namedtuple
+from datetime import datetime
 import LinzGrid
 import struct
 import re
@@ -20,6 +21,11 @@ formats={
 }
 
 defaultFormat='LINZDEF2L'
+defaultStartDate=datetime(1800,1,1)
+defaultEndDate=datetime(2200,1,1)
+
+deformation_resolution=0.0001
+velocity_resolution=0.000001
 
 class _packer( object ):
 
@@ -36,6 +42,10 @@ class _packer( object ):
         fh.write(encoded)
         fh.write('\x00')
 
+    def writedate( self, fh, date ):
+        for dp in (date.year,date.month,date.day,date.hour,date.minute,date.second):
+            fh.write(self.packshort(dp))
+
 class _range( object ):
 
     def __init__( self,ymin=None,ymax=None,xmin=None,xmax=None):
@@ -51,7 +61,7 @@ class _range( object ):
         self.xmax = other.xmax if self.xmax is None or self.xmax < other.xmax else self.xmax
 
 
-    def writeBin( self, packer, binfile ):
+    def write( self, packer, binfile ):
         if self.ymin==None or self.ymax==None or self.xmin==None or self.xmax==None:
             raise RuntimeError('Cannot write uninitialized range')
         binfile.write(packer.packdouble(self.ymin))
@@ -131,7 +141,7 @@ class LinzDefModelBin( object ):
 
             grids=[]
             dimension=0
-            zerobeyond='yes'
+            zerobeyond=True
             for m in c.spatialModel.models():
                 if m.spatial_model != 'llgrid':
                     raise RuntimeError('Cannot handle spatial model type '+spatial_model)
@@ -142,12 +152,14 @@ class LinzDefModelBin( object ):
                 grids.append(gridfile)
                 dimension=len(m.columns)
                 if not m.spatial_complete:
-                    zerobeyond='no'
+                    zerobeyond=False
                 if gridfile not in gridfiles:
                     gridfiles[gridfile]={
                         'name': gridfile,
                         'floc': 0,
+                        'dimension': dimension,
                         'description': getattr(m,'description',''),
+                        'isvelocity': mtype == 'velocity',
                         'range': _range(),
                         }
 
@@ -189,7 +201,7 @@ class LinzDefModelBin( object ):
                 events.sort()
                 e0=None
                 for e in events:
-                    if e0 and e0.time1.datesAfter(e.time0) > 0.001:
+                    if e0 and e0.time1.daysAfter(e.time0) > 0.001:
                         raise RuntimeError('Cannot handle overlapping time events in series')
                     v0 = 0.0 if len(time_model) == 0 else time_model[-1][1]
                     for t in time_model:
@@ -234,6 +246,7 @@ class LinzDefModelBin( object ):
                 coordsys=self.datum_code,
                 description=[g,gridfiles[g]['description']],
                 csvfile=self.model.getFileName(g),
+                resolution=velocity_resolution if gridfiles[g]['isvelocity'] else deformation_resolution
                 )
             gf.write(binfile)
             gridrange=_range(gf.ymin,gf.ymax,gf.xmin,gf.xmax)
@@ -249,9 +262,42 @@ class LinzDefModelBin( object ):
         packer.writestring(binfile,model.version())
         packer.writestring(binfile,self.datum_code)
         packer.writestring(binfile,model.metadata('description'))
+        packer.writedate(binfile,model.versionInfo(model.version()).release_date)
+        packer.writedate(binfile,defaultStartDate)
+        packer.writedate(binfile,defaultEndDate)
+        range.write(packer,binfile)
+        # Coords are lat/lon flag - always true for LINZ deformation model
+        binfile.write(packer.packshort(1))
+
+        defseq=[]
+        for sequence in self.sequences:
+            name=sequence.component.name
+            if len(sequence.subsequences):
+                name=name+'_{0}'
+            for i,subsequence in enumerate(sequence.subsequences):
+                defseq.append(name.format(i),sequence,subsequence):
+
+        binfile.write(packer.packshort(len(defseq)))
+
+        for name,sequence,subsequence in enumerate(self.sequences):
+            print(name)
+            print(sequence.component.name)
+            print(sequence.component.description)
+            packer.writestring(binfile,sequence.component.name)
+            packer.writestring(binfile,sequence.component.description)
+            packer.writedate(binfile,defaultStartDate)
+            packer.writedate(binfile,defaultEndDate)
+            sequence.range.write(packer,binfile)
+            binfile.write(packer.packshort(sequence.dimension))
+            binfile.write(packer.packshort(1 if sequence.zerobeyondrange else 0))
+            # Nested sequence - always true for implementation
+            binfile.write(packer.packshort(1))
+            binfile.write(packer.packshort(len(sequence.grids)))
+            for gridfile in sequence.grids:
+                gridname=name+os.path.basename(gridfile)
 
 
-
+            
     def writefile( self, filename ):
         '''
         Write the grid to a file
