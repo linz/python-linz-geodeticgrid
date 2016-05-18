@@ -30,11 +30,34 @@ class _packer( object ):
         self.packlong=struct.Struct(endian+'l').pack
         self.packdouble=struct.Struct(endian+'d').pack
 
-    def _writestring( self, text, fh ):
+    def writestring( self, fh, text ):
         encoded=text.encode('ascii')
         fh.write(self.packshort(len(encoded)+1))
         fh.write(encoded)
         fh.write('\x00')
+
+class _range( object ):
+
+    def __init__( self,ymin=None,ymax=None,xmin=None,xmax=None):
+        self.ymin=ymin
+        self.ymax=ymax
+        self.xmin=xmin
+        self.xmax=xmax
+
+    def add( self, other ):
+        self.ymin = other.ymin if self.ymin is None or self.ymin > other.ymin else self.ymin
+        self.ymax = other.ymax if self.ymax is None or self.ymax < other.ymax else self.ymax
+        self.xmin = other.xmin if self.xmin is None or self.xmin > other.xmin else self.xmin
+        self.xmax = other.xmax if self.xmax is None or self.xmax < other.xmax else self.xmax
+
+
+    def writeBin( self, packer, binfile ):
+        if self.ymin==None or self.ymax==None or self.xmin==None or self.xmax==None:
+            raise RuntimeError('Cannot write uninitialized range')
+        binfile.write(packer.packdouble(self.ymin))
+        binfile.write(packer.packdouble(self.ymax))
+        binfile.write(packer.packdouble(self.xmin))
+        binfile.write(packer.packdouble(self.xmax))
 
 class LinzDefModelBin( object ):
     '''
@@ -70,7 +93,7 @@ class LinzDefModelBin( object ):
         
 
         TimeStep=namedtuple('TimeStep','mtype t0 f0 t1 f1')
-        DefSeq=namedtuple('DefSeq','component dimension zerobeyond steps grids subseq')
+        DefSeq=namedtuple('DefSeq','component dimension zerobeyond steps grids subseq range')
         DefComp=namedtuple('DefComp','date factor before after')
         SeqComp=namedtuple('SeqComp','time factor before after nested')
         small=0.00001
@@ -124,7 +147,8 @@ class LinzDefModelBin( object ):
                     gridfiles[gridfile]={
                         'name': gridfile,
                         'floc': 0,
-                        'description': getattr(m,'description','')
+                        'description': getattr(m,'description',''),
+                        'range': _range(),
                         }
 
             # Reverse grids so that contained grids occur before containing grids..
@@ -141,7 +165,7 @@ class LinzDefModelBin( object ):
                     break
 
             if not found:
-                sequences.append(DefSeq(component,dimension,zerobeyond,[step],grids,[]))
+                sequences.append(DefSeq(component,dimension,zerobeyond,[step],grids,[],_range()))
 
         for sequence in sequences:
             compname=sequence.component
@@ -193,6 +217,7 @@ class LinzDefModelBin( object ):
         Write the model to a file handle. 
         '''
         packer=_packer(self.formatdef['bigendian'])
+        model=self.model
         binfile.write(self.formatdef['signature'].encode('ascii'))
         # Create a pointer to the file index data, which is written immediately 
         # after the pointer in this case (unlike previous perl code)
@@ -200,6 +225,7 @@ class LinzDefModelBin( object ):
         binfile.write(packer.packlong(0))
         # Write each of the grids used and record its location
         gridfiles=self.gridfiles
+        range=_range()
         for g in sorted(gridfiles):
             print("Writing grid "+g)
             gridfiles[g]['floc']=binfile.tell()
@@ -210,6 +236,20 @@ class LinzDefModelBin( object ):
                 csvfile=self.model.getFileName(g),
                 )
             gf.write(binfile)
+            gridrange=_range(gf.ymin,gf.ymax,gf.xmin,gf.xmax)
+            gridfiles[g]['range']=gridrange
+            range.add(gridrange)
+        # compile sequence ranges and total range
+        for s in self.sequences:
+            for g in s.grids:
+                s.range.add(gridfiles[g]['range'])
+
+        indexloc=binfile.tell()
+        packer.writestring(binfile,model.metadata('model_name'))
+        packer.writestring(binfile,model.version())
+        packer.writestring(binfile,self.datum_code)
+        packer.writestring(binfile,model.metadata('description'))
+
 
 
     def writefile( self, filename ):
