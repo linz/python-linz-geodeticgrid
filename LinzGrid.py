@@ -26,12 +26,18 @@ max4byte=2**31-2
 
 class _packer( object ):
 
-    def __init__( self, format ):
-        endian=">" if format in bigendian_formats else "<"
+    def __init__( self, bigendian=False ):
+        endian=">" if bigendian else "<"
         self.packschar=struct.Struct(endian+'b').pack
         self.packshort=struct.Struct(endian+'h').pack
         self.packlong=struct.Struct(endian+'l').pack
         self.packdouble=struct.Struct(endian+'d').pack
+
+    def _writestring( self, text, fh ):
+        encoded=text.encode('ascii')
+        fh.write(self.packshort(len(encoded)+1))
+        fh.write(encoded)
+        fh.write('\x00')
 
 class LinzGrid( object ):
     '''
@@ -143,7 +149,7 @@ class LinzGrid( object ):
                     dll0=(ll3[0]-ll0[0],ll3[1]-ll0[1])
                 elif ll1 is None:
                     dll1=(ll3[0]-ll2[0],ll3[1]-ll2[1])
-                    if dll1[0]*dll0[0] + dll1[1]-dll0[1] < 0:
+                    if dll1[0]*dll0[0] + dll1[1]*dll0[1] < 0:
                         ll1=ll2
                         ncol=ndata-1
                 ll2=ll3
@@ -330,7 +336,7 @@ class LinzGrid( object ):
         '''
         Write the grid to a file handle. 
         '''
-        packer=_packer(self.format)
+        packer=_packer(self.format in bigendian_formats)
         offset=gridfile.tell()
         writerow=self._writerowv2 if self.format in version2_formats else self._writerowv1
         gridfile.write(formats[self.format].encode('ascii'))
