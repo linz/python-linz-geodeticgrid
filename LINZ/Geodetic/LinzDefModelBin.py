@@ -8,7 +8,7 @@ from LINZ.DeformationModel import Model, Time
 from collections import namedtuple
 from datetime import datetime
 import os.path
-import ./LinzGrid
+from .LinzGrid import LinzGrid
 import struct
 import re
 
@@ -87,7 +87,7 @@ class LinzDefModelBin( object ):
     by LINZ software such as SNAP and Landonline.
     '''
 
-    def __init__( self, model, format='LINZDEF2L', description=None, coordsys='',islatlon=True,resolution=None,csvfile=None):
+    def __init__( self, model, format='LINZDEF2L', description=None, verbose=False):
         '''
         Create a LinzDefModelBin object.  
 
@@ -105,6 +105,7 @@ class LinzDefModelBin( object ):
         self.format=format
         self.formatdef=formats[format]
         self.model=model
+        self.verbose=verbose
         self.analyzeModel()
 
     def analyzeModel( self ):
@@ -143,15 +144,12 @@ class LinzDefModelBin( object ):
         gridfiles={}
 
         for c in model.components():
-            print "Analyzing component:",c.name
+            if self.verbose: print("Analyzing component:",c.name)
             component=c.submodel
-            # print component
             tm=c.timeFunction
             mtype=tm.time_function
             if mtype not in ('velocity','step','ramp'):
                 raise RuntimeError('Cannot handle temporal model type '+mtype)
-            # print type(c.timeComponent.model())
-            # print mtype,tm.factor0,tm.factor1,tm.time0,tm.time1
 
             grids=[]
             dimension=0
@@ -159,9 +157,6 @@ class LinzDefModelBin( object ):
             for m in c.spatialModel.models():
                 if m.spatial_model != 'llgrid':
                     raise RuntimeError('Cannot handle spatial model type '+spatial_model)
-                # print m.model().gridSpec()
-                #print '    ',m.model().gridFile()
-                #print '    ',m.columns
                 gridfile=m.model().gridFile()
                 grids.append(gridfile)
                 dimension=len(m.columns)
@@ -188,7 +183,7 @@ class LinzDefModelBin( object ):
 
         for sequence in sequences:
             compname=sequence.component
-            print "Analyzing sequence:",compname
+            if self.verbose: print("Analyzing sequence:",compname)
 
             timefuncs = []
             events=[]
@@ -249,9 +244,9 @@ class LinzDefModelBin( object ):
         bbox=_bbox()
         for g in sorted(gridfiles):
             gridloc[g]=binfile.tell()
-            print("Writing grid {0} at {1}".format(g,gridloc[g]))
+            if self.verbose: print("Writing grid {0} at {1}".format(g,gridloc[g]))
             gdef=gridfiles[g]
-            gf=LinzGrid.LinzGrid(
+            gf=LinzGrid(
                 format=self.formatdef['gridformat'],
                 coordsys=self.datum_code,
                 description=[g,gdef.description],
@@ -340,40 +335,29 @@ class LinzDefModelBin( object ):
         '''
         with open(filename,'wb') as binfile:
             self.write( binfile )
+        if self.verbose:
+            print("Deformation model written to {0}".format(filename))
 
     @staticmethod
     def main():
         import argparse
         formatcodes=sorted(formats.keys())
         argparser=argparse.ArgumentParser('Build a LINZDEF deformation file from a published deformation model')
-        argparser.add_argument('model_dir',help='Base directory of model, containing model and tools directories')
+        argparser.add_argument('model_dir',help='Base directory of model')
         argparser.add_argument('linzdef_file',help='Name of final model')
         argparser.add_argument('-f','--format',choices=formatcodes,default=defaultFormat,
                                help='Format of binary file')
+        argparser.add_argument('-v','--verbose',action='storetrue',help='Generate more output')
 
         args = argparser.parse_args()
 
-        md=args.model_dir
-        if not isdir(md) or not isdir(joinpath(md,'model')) or not isdir(joinpath(md,'tools')):
+        model_dir=args.model_dir
+        if not isdir(model_dir):
             raise RuntimeError("Invalid model directory: "+md)
 
-        bd=args.target_dir
-        if not isdir(bd):
-            if os.path.exists(bd):
-                raise RuntimeError("Invalid target build directory: "+bd)
-            else:
-                os.makedirs(bd)
-
-        defname=args.linzdef_file
-        deffile=open(joinpath(bd,defname+'.def'),"w")
-
-        sys.path.append(joinpath(md,'tools'))
-        from LINZ.DeformationModel import Model, Time
-
-        m=Model.Model(joinpath(md,'model'))
+        model=Model.Model(model_dir)
+        binfiledef=LinzDefModelBin(model,format=args.format,verbose=args.verbose)
+        binfiledef.writefile(args.linzdef_file)
         
 if __name__ == "__main__":
-    # LinzDefModelBin.main()
-    model=Model.Model('/home/ccrook/projects/deformation/models/published/model')
-    binfiledef=LinzDefModelBin(model)
-    binfiledef.writefile('garbage_model.bin')
+    LinzDefModelBin.main()
