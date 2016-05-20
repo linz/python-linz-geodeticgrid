@@ -1,3 +1,8 @@
+# Imports to support python 3 compatibility
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import numpy as np
 import csv
@@ -19,10 +24,10 @@ mincompress=16 # Minimum length of array to pack with differences
 maxsubset=1024 # Maximum number of elements in a subset
 
 # Useful constants
-missing=2**15-1
 max1byte=2**7-2
 max2byte=2**15-2
 max4byte=2**31-2
+missing=2**31-1
 
 class _packer( object ):
 
@@ -45,7 +50,8 @@ class LinzGrid( object ):
     by LINZ software such as SNAP and Landonline.
     '''
 
-    def __init__( self, format='GRID2L', description=None, coordsys='',islatlon=True,resolution=None,csvfile=None):
+    def __init__( self, format='GRID2L', description=None, coordsys='',islatlon=True,resolution=None,
+                 csvfile=None,crdcols=None,datacols=None):
         '''
         Create a LinzGrid object.  Optional parameters are:
 
@@ -55,6 +61,8 @@ class LinzGrid( object ):
         islatlon: identifies that the grid is latitude and longitude (ie not projection coords)
         resolution: precision of the grid data values (values are integer multiples of resolution)
         csvfile: optional name of a csvfile from which grid data is read
+        crdcols: optional name of east and north coordinate columns (default [lon, lat])
+        datacols: optional names of data columns, default is not coord columns
         '''
         if format not in formats:
             raise RuntimeError('Invalid grid format {0}'.format(format))
@@ -73,7 +81,7 @@ class LinzGrid( object ):
         self.resolution=resolution
         self.data=None
         if csvfile:
-            self.loadCsv(csvfile,resolution)
+            self.loadCsv(csvfile,resolution=resolution,crdcols=crdcols,datacols=datacols)
 
     def setDescription( self, *description ):
         '''
@@ -101,68 +109,106 @@ class LinzGrid( object ):
             lines[2:]=['\n'.join(lines[2:])]
         self.description=lines
 
-    def _csvIterator(self, csvr):
-        notblank=re.compile(r'\S')
-        for row in csvr:
-            frow=tuple(float(x) if notblank.match(x) else None for x in row)
-            if frow[0] is None or frow[1] is None:
-                continue
-            yield frow
-
-    def loadCsv( self, csvfile, resolution=None ):
-        '''
-        Load grid data from a csv file.  The csv file is assumed to have as 
-        single header line holding the column names.  The first two columns 
-        must be longitude and latitude (or lon and lat), though the order 
-        of these columns is arbitrary.  The grid must be a regular 
-        longitude/latitude grid (ie aligned with the lon/lat axes and 
-        with equally spaced columns/rows).  The order of elements is not 
-        critical, except that they must be entered sequentially along 
-        rows then columns or vice versa.
-        '''
+    def _csvIterator(self, csvfile, crdcols, datacols):
         with open(csvfile) as csvfh:
             csvr=csv.reader(csvfh)
             columns=csvr.next()
+            columns=[c.lower() for c in columns]
             if len(columns) < 3:
                 raise RuntimeError('Grid file {0} must have at least 3 columns'.format(csvfile))
-            gcols=(columns[0][:3].lower(),columns[1][:3])
-            if gcols not in (('lon','lat'),('lat','lon')):
-                raise RuntimeError('Grid file {0} must have lon, lat as first two columns'.format(csvfile))
-            nval=len(columns)
-            ndim=nval-2
-            clon=gcols.index('lon')
-            clat=gcols.index('lat')
-            
-            ndata=0
-            ncol=0
-            ll0=None
-            ll1=None
-            ll2=None
-            dmin=None
-            dmax=None
-            for data in self._csvIterator(csvr):
-                ll3=(data[clon],data[clat])
-                ndata += 1
-                if ndata==1:
-                    ll0=ll3
-                elif ndata==2:
-                    dll0=(ll3[0]-ll0[0],ll3[1]-ll0[1])
-                elif ll1 is None:
-                    dll1=(ll3[0]-ll2[0],ll3[1]-ll2[1])
-                    if dll1[0]*dll0[0] + dll1[1]*dll0[1] < 0:
-                        ll1=ll2
-                        ncol=ndata-1
-                ll2=ll3
-                for f in data[2:]:
-                    if f is not None:
-                        if dmin is None:
-                            dmin=dmax=f
-                        elif f < dmin:
-                            dmin=f
-                        elif f > dmax:
-                            dmax=f
+            if crdcols is None:
+                if 'longitude' in columns and 'latitude' in columns:
+                    crdcols=('longitude','latitude')
+                else:
+                    crdcols=('lon','lat')
+            elif len(crdcols)==2:
+                crdcols=tuple(c.lower() for c in crdcols[:2])
+            else:
+                raise RuntimeError('Grid file {0} called with invalid coordinate columns'.format(csvfile))
+            crdcolno=tuple(columns.index(c) if c in columns else -1 for c in crdcols)
+            if -1 in crdcolno:
+                raise RuntimeError('Grid file {0} must have columns {1} and {2}'.format(csvfile,crdcols[0],crdcols[1] ))
+            datacolno=[]
+            if datacols is None:
+                datacolno=tuple(i for i in range(len(columns)) if i not in crdcolno)
+            else:
+                datacols=[d.lower() for d in datacols]
+                for c in datacols:
+                    if c in columns:
+                        datacolno.append(columns.index(c))
+                    else:
+                        raise RuntimeError('Grid file {0} must have data columns {1}'.format(csvfile,c))
 
-        if ndata % ncol != 0:
+        ncolmin=crdcolno[0] if crdcolno[0]<crdcolno[1] else crdcolno[1]
+        for cn in datacolno:
+            if cn > ncolmin:
+                ncolmin=cn
+        notblank=re.compile(r'\S')
+
+        def reader():
+            with open(csvfile) as csvfh:
+                csvr=csv.reader(csvfh)
+                columns=csvr.next()
+                nrow=1
+                for row in csvr:
+                    nrow += 1
+                    if len(row) <= ncolmin:
+                        continue
+                    try:
+                        ll=tuple(float(row[x]) for x in crdcolno)
+                        data=tuple(float(row[x]) if notblank.match(row[x]) else None for x in datacolno)
+                    except:
+                        raise RuntimeError('Error reading grid file {0} at line {1}'.format(csvfile,nrow))
+                    yield ll,data
+
+        return reader, len(datacolno)
+
+    def loadCsv( self, csvfile, resolution=None, crdcols=None, datacols=None ):
+        '''
+        Load grid data from a csv file.  The csv file is assumed to have as 
+        single header line holding the column names.  East and north coordinates
+        are read from the columns named in crdcols parameter, and data from the columns listed
+        in datacols parameter. If crdcols is None then either ('lon','lat'), or 
+        ('longitude','latitude') will be used.  If datacols is None then all none
+        coordinate columns will be used.
+        The grid must be a regular longitude/latitude grid (ie aligned with 
+        the lon/lat axes and with equally spaced columns/rows).  The order 
+        of elements must be entered sequentially along rows then columns or vice versa,
+        No assumptions are made about the direction that rows and columns are entered,
+        or the order.
+        Data values are converted to integers by dividing by resolution.
+        '''
+            
+        ndata=0
+        ncol=0
+        ll0=None
+        ll1=None
+        ll2=None
+        dmin=None
+        dmax=None
+        reader,ndim=self._csvIterator(csvfile,crdcols,datacols)
+        for ll,data in reader():
+            ndata += 1
+            if ndata==1:
+                ll0=ll
+            elif ndata==2:
+                dll0=(ll[0]-ll0[0],ll[1]-ll0[1])
+            elif ll1 is None:
+                dll1=(ll[0]-ll2[0],ll[1]-ll2[1])
+                if dll1[0]*dll0[0] + dll1[1]*dll0[1] < 0:
+                    ll1=ll2
+                    ncol=ndata-1
+            ll2=ll
+            for f in data:
+                if f is not None:
+                    if dmin is None:
+                        dmin=dmax=f
+                    elif f < dmin:
+                        dmin=f
+                    elif f > dmax:
+                        dmax=f
+
+        if ncol==0 or ndata % ncol != 0:
             raise RuntimeError('Grid file {0} number of elements {1} not multiple of row size {2}'
                                .format(csvfile,ndata,ncol))
         nrow=ndata/ncol
@@ -195,26 +241,23 @@ class LinzGrid( object ):
                 resolution /= 10.0
                 vmax *= 10.0
         
-        with open(csvfile) as csvfh:
-            csvr=csv.reader(csvfh)
-            columns=csvr.next()
-            irow=0
-            icol=-1
-            ndata=1
-            for data in self._csvIterator(csvr):
-                ndata += 1
-                icol += 1
-                if icol >= ncol:
-                    icol = 0
-                    irow += 1
-                lonerr=abs(data[clon]-ll0[0]-dlonc*icol-dlonr*irow)
-                laterr=abs(data[clat]-ll0[1]-dlatc*icol-dlatr*irow)
-                if lonerr > tolerance or laterr > tolerance:
-                    raise RuntimeError('Grid file {0} - grid not regular grid at record {1}'
-                               .format(csvfile,ndata))
-                for i,f in enumerate(data[2:]):
-                    if f is not None:
-                        gdata[irow,icol,i]=int(round(f/resolution))
+        irow=0
+        icol=-1
+        ndata=1
+        for ll,data in reader():
+            ndata += 1
+            icol += 1
+            if icol >= ncol:
+                icol = 0
+                irow += 1
+            lonerr=abs(ll[0]-ll0[0]-dlonc*icol-dlonr*irow)
+            laterr=abs(ll[1]-ll0[1]-dlatc*icol-dlatr*irow)
+            if lonerr > tolerance or laterr > tolerance:
+                raise RuntimeError('Grid file {0} - grid not regular grid at record {1}'
+                           .format(csvfile,ndata))
+            for i,f in enumerate(data):
+                if f is not None:
+                    gdata[irow,icol,i]=int(round(f/resolution))
 
         if abs(dlatc) > abs(dlonc):
             gdata=gdata.transpose(1,0)
@@ -241,7 +284,10 @@ class LinzGrid( object ):
 
     def _writerowv1( self, irow, gridfile, packer ):
         rowloc=gridfile.tell()
-        for r in self.data[irow]:
+        data=self.data[irow]
+        if np.amax(np.absolute(data[data != missing])) > max2byte:
+            raise RuntimeError('Data cannot be stored at required resolution in this format')
+        for r in data:
             for v in r:
                 if v == missing:
                     gridfile.write(packer.packshort(0x7fff))
@@ -366,9 +412,11 @@ class LinzGrid( object ):
         # Write the rows out and save the location of each row
         rowlocs=[writerow(i,gridfile,packer)-offset for i in range(self.ngridy)]
         # Update the row index in the binary file with the actual locations
+        endloc=gridfile.tell()
         gridfile.seek(indexptrloc)
         for rowloc in rowlocs:
             gridfile.write(packer.packlong(rowloc))
+        gridfile.seek(endloc)
 
     def writefile( self, filename ):
         '''
@@ -383,17 +431,21 @@ class LinzGrid( object ):
         parser=argparse.ArgumentParser(description='Convert CSV grid file to LINZ binary format grid file')
         parser.add_argument('csv_grid_file',help='CSV grid input file')
         parser.add_argument('linz_grid_file',help='LINZ binary grid output file')
+        parser.add_argument('-x','--coordcols',help='Names of lon/lat columns separated by :')
+        parser.add_argument('-v','--datacols',help='Names of data columns separated by :')
         parser.add_argument('-r','--resolution',type=float,help='Precision of data values')
-        parser.add_argument('-f','--format',default='GRID2L',help='Binary file format')
+        parser.add_argument('-f','--format',choices=sorted(formats),default='GRID2L',help='Binary file format')
         parser.add_argument('-c','--coordsys',default='NZGD2000',help='Coordinate system code')
-        parser.add_argument('-d','--description',action='append',help='Binary file descriptive header (up to 3)')
+        parser.add_argument('-d','--description',action='append',help='Binary file descriptive header (up to 3 may be specified)')
         args=parser.parse_args()
         linzgrid=LinzGrid(
             description=args.description,
             coordsys=args.coordsys,
             format=args.format,
             resolution=args.resolution,
-            csvfile=args.csv_grid_file)
+            csvfile=args.csv_grid_file,
+            crdcols=args.coordcols.split(':') if args.coordcols else None,
+            datacols=args.datacols.split(':') if args.datacols else None)
         linzgrid.writefile(args.linz_grid_file)
         
 if __name__ == "__main__":
