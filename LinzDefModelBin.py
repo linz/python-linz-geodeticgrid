@@ -22,8 +22,8 @@ formats={
 }
 
 defaultFormat='LINZDEF2L'
-defaultStartDate=datetime(1800,1,1)
-defaultEndDate=datetime(2200,1,1)
+defaultStartDate=Time.Time(datetime(1800,1,1))
+defaultEndDate=Time.Time(datetime(2200,1,1))
 
 deformation_resolution=0.0001
 velocity_resolution=0.000001
@@ -63,7 +63,8 @@ class _packer( object ):
         fh.write(encoded)
         fh.write('\x00')
 
-    def writedate( self, fh, date ):
+    def writedate( self, fh, time ):
+        date=time.asDateTime()
         for dp in (date.year,date.month,date.day,date.hour,date.minute,date.second):
             fh.write(self.packshort(dp))
 
@@ -268,7 +269,7 @@ class LinzDefModelBin( object ):
         packer.writestring(binfile,model.version())
         packer.writestring(binfile,self.datum_code)
         packer.writestring(binfile,model.metadata('description'))
-        packer.writedate(binfile,model.versionInfo(model.version()).release_date.asDateTime())
+        packer.writedate(binfile,model.versionInfo(model.version()).release_date)
         packer.writedate(binfile,defaultStartDate)
         packer.writedate(binfile,defaultEndDate)
         packer.writebbox(binfile,bbox)
@@ -296,26 +297,28 @@ class LinzDefModelBin( object ):
             # Nested sequence - always true for implementation
             packer.writeshort(binfile,1)
             packer.writeshort(binfile,len(sequence.grids))
+
             for gridfile in sorted(sequence.grids):
                 gridname=name+'_'+os.path.basename(gridfile)
                 if timefunc.type == 'VELOCITY':
                     tref=timefunc.params[0].asYear()
-                    t0=Time.Time(defaultStartDate).asYear()
-                    t1=Time.Time(defaultEndDate).asYear()
-                    timemodel=[t0-tref,Time.Time(defaultStartDate),t0-tref,Time.Time(defaultEndDate),t1-tref]
+                    t0=defaultStartDate.asYear()
+                    t1=defaultEndDate.asYear()
+                    timemodel=[t0-tref,defaultStartDate,t0-tref,defaultEndDate,t1-tref]
                 elif timefunc.type == 'PIECEWISE_LINEAR':
                     timemodel=timefunc.params
                 else:
                     raise RuntimeError('Invalid timefunc type {0}'.format(timefunc.type))
                 packer.writestring(binfile,gridname)
-                packer.writedate(binfile,timemodel[1].asDateTime())
+                packer.writedate(binfile,timemodel[1])
                 packer.writebbox(binfile,gridfiles[gridfile].bbox)
                 # Time model type - always piecewise linear
                 packer.writeshort(binfile,1)
                 nstep=int((len(timemodel)-1)/2)
+                packer.writeshort(binfile,nstep)
                 packer.writedouble(binfile,timemodel[0])
                 for ns in range(nstep):
-                    packer.writedate(binfile,timemodel[ns*2+1].asDateTime())
+                    packer.writedate(binfile,timemodel[ns*2+1])
                     packer.writedouble(binfile,timemodel[ns*2+2])
                 # Spatial model always grid
                 packer.writeshort(binfile,0)
