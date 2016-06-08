@@ -338,26 +338,32 @@ class LinzDefModelBin( object ):
         if self.verbose:
             print("Deformation model written to {0}".format(filename))
 
-    @staticmethod
-    def main():
-        import argparse
-        formatcodes=sorted(formats.keys())
-        argparser=argparse.ArgumentParser('Build a LINZDEF deformation file from a published deformation model')
-        argparser.add_argument('model_dir',help='Base directory of model')
-        argparser.add_argument('linzdef_file',help='Name of final model')
-        argparser.add_argument('-f','--format',choices=formatcodes,default=defaultFormat,
-                               help='Format of binary file')
-        argparser.add_argument('-v','--verbose',action='store_true',help='Generate more output')
+@staticmethod
+def main():
+    import argparse
+    formatcodes=sorted(formats.keys())
+    argparser=argparse.ArgumentParser('Build a LINZDEF deformation file from a published deformation model')
+    argparser.add_argument('model_dir',help='Base directory of model')
+    argparser.add_argument('linzdef_file',nargs='?',help='Name of final model')
+    argparser.add_argument('-f','--format',choices=formatcodes,default=defaultFormat,
+                           help='Format of binary file')
+    argparser.add_argument('-v','--verbose',action='store_true',help='Generate more output')
 
-        args = argparser.parse_args()
+    args = argparser.parse_args()
 
-        model_dir=args.model_dir
-        if not isdir(model_dir):
-            raise RuntimeError("Invalid model directory: "+md)
+    model_dir=args.model_dir
+    if not os.path.isdir(model_dir):
+        raise RuntimeError("Invalid model directory: "+md)
 
-        model=Model.Model(model_dir)
-        binfiledef=LinzDefModelBin(model,format=args.format,verbose=args.verbose)
-        binfiledef.writefile(args.linzdef_file)
-        
+    model=Model.Model(model_dir)
+    binfiledef=LinzDefModelBin(model,format=args.format,verbose=args.verbose)
+
+    linzdef_file=args.linzdef_file
+    if linzdef_file is None:
+        endian='B' if binfiledef.formatdef['bigendian'] else 'L'
+        linzdef_file=model.datumCode()+'_def_'+model.version()+endian+'.bin'
+        linzdef_file=linzdeffile.lower()
+    binfiledef.writefile(linzdef_file)
+    
 if __name__ == "__main__":
-    LinzDefModelBin.main()
+    main()

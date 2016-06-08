@@ -425,28 +425,28 @@ class LinzGrid( object ):
         with open(filename,'wb') as gridfile:
             self.write( gridfile )
 
-    @staticmethod
-    def main():
-        import argparse
-        parser=argparse.ArgumentParser(description='Convert CSV grid file to LINZ binary format grid file')
-        parser.add_argument('csv_grid_file',help='CSV grid input file')
-        parser.add_argument('linz_grid_file',help='LINZ binary grid output file')
-        parser.add_argument('-x','--coordcols',help='Names of lon/lat columns separated by :')
-        parser.add_argument('-v','--datacols',help='Names of data columns separated by :')
-        parser.add_argument('-r','--resolution',type=float,help='Precision of data values')
-        parser.add_argument('-f','--format',choices=sorted(formats),default='GRID2L',help='Binary file format')
-        parser.add_argument('-c','--coordsys',default='NZGD2000',help='Coordinate system code')
-        parser.add_argument('-d','--description',action='append',help='Binary file descriptive header (up to 3 may be specified)')
-        args=parser.parse_args()
-        linzgrid=LinzGrid(
-            description=args.description,
-            coordsys=args.coordsys,
-            format=args.format,
-            resolution=args.resolution,
-            csvfile=args.csv_grid_file,
-            crdcols=args.coordcols.split(':') if args.coordcols else None,
-            datacols=args.datacols.split(':') if args.datacols else None)
-        linzgrid.writefile(args.linz_grid_file)
+@staticmethod
+def main():
+    import argparse
+    parser=argparse.ArgumentParser(description='Convert CSV grid file to LINZ binary format grid file')
+    parser.add_argument('csv_grid_file',help='CSV grid input file')
+    parser.add_argument('linz_grid_file',help='LINZ binary grid output file')
+    parser.add_argument('-x','--coordcols',help='Names of lon/lat columns separated by :')
+    parser.add_argument('-v','--datacols',help='Names of data columns separated by :')
+    parser.add_argument('-r','--resolution',type=float,help='Precision of data values')
+    parser.add_argument('-f','--format',choices=sorted(formats),default='GRID2L',help='Binary file format')
+    parser.add_argument('-c','--coordsys',default='NZGD2000',help='Coordinate system code')
+    parser.add_argument('-d','--description',action='append',help='Binary file descriptive header (up to 3 may be specified)')
+    args=parser.parse_args()
+    linzgrid=LinzGrid(
+        description=args.description,
+        coordsys=args.coordsys,
+        format=args.format,
+        resolution=args.resolution,
+        csvfile=args.csv_grid_file,
+        crdcols=args.coordcols.split(':') if args.coordcols else None,
+        datacols=args.datacols.split(':') if args.datacols else None)
+    linzgrid.writefile(args.linz_grid_file)
         
 if __name__ == "__main__":
-    LinzGrid.main()
+    main()
