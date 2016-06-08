@@ -347,7 +347,7 @@ class LinzDefModelBin( object ):
         argparser.add_argument('linzdef_file',help='Name of final model')
         argparser.add_argument('-f','--format',choices=formatcodes,default=defaultFormat,
                                help='Format of binary file')
-        argparser.add_argument('-v','--verbose',action='storetrue',help='Generate more output')
+        argparser.add_argument('-v','--verbose',action='store_true',help='Generate more output')
 
         args = argparser.parse_args()
 
