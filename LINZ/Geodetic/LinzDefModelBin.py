@@ -361,7 +361,7 @@ def main():
     if linzdef_file is None:
         endian='B' if binfiledef.formatdef['bigendian'] else 'L'
         linzdef_file=model.datumCode()+'_def_'+model.version()+endian+'.bin'
-        linzdef_file=linzdeffile.lower()
+        linzdef_file=linzdef_file.lower()
     binfiledef.writefile(linzdef_file)
     
 if __name__ == "__main__":
