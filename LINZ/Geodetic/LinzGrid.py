@@ -425,7 +425,6 @@ class LinzGrid( object ):
         with open(filename,'wb') as gridfile:
             self.write( gridfile )
 
-@staticmethod
 def main():
     import argparse
     parser=argparse.ArgumentParser(description='Convert CSV grid file to LINZ binary format grid file')

@@ -338,7 +338,6 @@ class LinzDefModelBin( object ):
         if self.verbose:
             print("Deformation model written to {0}".format(filename))
 
-@staticmethod
 def main():
     import argparse
     formatcodes=sorted(formats.keys())
