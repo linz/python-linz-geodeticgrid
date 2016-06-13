@@ -298,7 +298,7 @@ class LinzDefModelBin( object ):
             packer.writeshort(binfile,1)
             packer.writeshort(binfile,len(sequence.grids))
 
-            for gridfile in sorted(sequence.grids):
+            for gridfile in sequence.grids:
                 gridname=name+'_'+os.path.basename(gridfile)
                 if timefunc.type == 'VELOCITY':
                     tref=timefunc.params[0].asYear()
