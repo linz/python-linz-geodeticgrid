@@ -265,7 +265,7 @@ class LinzDefModelBin( object ):
                 s.bbox.add(gridfiles[g].bbox)
 
         indexloc=binfile.tell()
-        packer.writestring(binfile,model.metadata('model_name'))
+        packer.writestring(binfile,model.metadata('model_name')+'('+model.version()+')')
         packer.writestring(binfile,model.version())
         packer.writestring(binfile,self.datum_code)
         packer.writestring(binfile,model.metadata('description'))
