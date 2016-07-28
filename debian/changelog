@@ -1,5 +1,11 @@
-python-linz-geodeticgrid (1.0.0-1linz~trusty1) UNRELEASED; urgency=medium
+python-linz-geodeticgrid (1.0.1-1) trusty; urgency=medium
 
   * Initial release
+  * Fixing add_argument action
+  * Moving main() functions from class to module
+  * ... and removing staticmethod ...
+  * ... and fixing typo ...
+  * Fixing bug generating subgrids in reverse order
+  * Adding version number to name in bin file
 
- -- Chris Crook <ccrook@linz.govt.nz>  Fri, 20 May 2016 18:57:11 +1200
+ -- Chris Crook <ccrook@linz.govt.nz>  Fri, 29 Jul 2016 10:09:36 +1200
