@@ -1,3 +1,9 @@
+python-linz-geodeticgrid (1.0.1-2) trusty; urgency=medium
+
+  * Updating rules
+
+ -- Chris Crook <ccrook@linz.govt.nz>  Fri, 29 Jul 2016 10:11:45 +1200
+
 python-linz-geodeticgrid (1.0.1-1) trusty; urgency=medium
 
   * Initial release
