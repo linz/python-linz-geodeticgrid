@@ -1,3 +1,18 @@
+python-linz-geodeticgrid (1.1.0-1) trusty; urgency=medium
+
+  * Fixing add_argument action
+  * Moving main() functions from class to module
+  * ... and removing staticmethod ...
+  * ... and fixing typo ...
+  * Fixing bug generating subgrids in reverse order
+  * Adding version number to name in bin file
+  * Packaging
+  * Updating rules
+  * Packaging
+  * Removing python3 build dependencies
+
+ -- Chris Crook <ccrook@linz.govt.nz>  Fri, 29 Jul 2016 13:26:30 +1200
+
 python-linz-geodeticgrid (1.0.1-2) trusty; urgency=medium
 
   * Updating rules
