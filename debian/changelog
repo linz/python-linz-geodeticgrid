@@ -1,3 +1,9 @@
+python-linz-geodeticgrid (1.1.1-2) trusty; urgency=medium
+
+  * Reverting to old packaging format
+
+ -- Chris Crook <ccrook@linz.govt.nz>  Mon, 07 Nov 2016 16:13:57 +1300
+
 python-linz-geodeticgrid (1.1.1-1) trusty; urgency=medium
 
   * Fixing column transposition
