@@ -1,3 +1,9 @@
+python-linz-geodeticgrid (1.1.1-1) trusty; urgency=medium
+
+  * Fixing column transposition
+
+ -- Chris Crook <ccrook@linz.govt.nz>  Mon, 07 Nov 2016 16:09:07 +1300
+
 python-linz-geodeticgrid (1.1.0-1) trusty; urgency=medium
 
   * Fixing add_argument action
