@@ -260,7 +260,7 @@ class LinzGrid( object ):
                     gdata[irow,icol,i]=int(round(f/resolution))
 
         if abs(dlatc) > abs(dlonc):
-            gdata=gdata.transpose(1,0)
+            gdata=gdata.transpose(1,0,2)
         if ll0[0] > ll2[0]:
             gdata=gdata[:,::-1,:]
         if ll0[1] > ll2[1]:
