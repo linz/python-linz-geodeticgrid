@@ -211,7 +211,7 @@ class LinzGrid( object ):
         if ncol==0 or ndata % ncol != 0:
             raise RuntimeError('Grid file {0} number of elements {1} not multiple of row size {2}'
                                .format(csvfile,ndata,ncol))
-        int(nrow=ndata/ncol)
+        nrow=int(ndata/ncol)
         tolerance=0.000001
         gdata=np.full((nrow,ncol,ndim),missing,dtype=np.int32)
         lon0=ll0[0]
