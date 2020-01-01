@@ -1,56 +1,6 @@
-python-linz-geodeticgrid (1.1.3-1) xenial; urgency=medium
+python3-linz-geodeticgrid (1.1.4-1) xenial; urgency=medium
 
-  * Proper fix of numpy error
+  * Python3 implementation
 
- -- Chris Crook <ccrook@linz.govt.nz>  Fri, 19 Jul 2019 19:30:31 +1200
+ -- Chris Crook <ccrook@linz.govt.nz>  Thu, 2 Jan 2020 09:00:00 +1200
 
-python-linz-geodeticgrid (1.1.2-1) xenial; urgency=medium
-
-  * Fixing numpy error with floating point row count
-
- -- Chris Crook <ccrook@linz.govt.nz>  Fri, 19 Jul 2019 19:08:12 +1200
-
-python-linz-geodeticgrid (1.1.1-2) trusty; urgency=medium
-
-  * Reverting to old packaging format
-
- -- Chris Crook <ccrook@linz.govt.nz>  Mon, 07 Nov 2016 16:13:57 +1300
-
-python-linz-geodeticgrid (1.1.1-1) trusty; urgency=medium
-
-  * Fixing column transposition
-
- -- Chris Crook <ccrook@linz.govt.nz>  Mon, 07 Nov 2016 16:09:07 +1300
-
-python-linz-geodeticgrid (1.1.0-1) trusty; urgency=medium
-
-  * Fixing add_argument action
-  * Moving main() functions from class to module
-  * ... and removing staticmethod ...
-  * ... and fixing typo ...
-  * Fixing bug generating subgrids in reverse order
-  * Adding version number to name in bin file
-  * Packaging
-  * Updating rules
-  * Packaging
-  * Removing python3 build dependencies
-
- -- Chris Crook <ccrook@linz.govt.nz>  Fri, 29 Jul 2016 13:26:30 +1200
-
-python-linz-geodeticgrid (1.0.1-2) trusty; urgency=medium
-
-  * Updating rules
-
- -- Chris Crook <ccrook@linz.govt.nz>  Fri, 29 Jul 2016 10:11:45 +1200
-
-python-linz-geodeticgrid (1.0.1-1) trusty; urgency=medium
-
-  * Initial release
-  * Fixing add_argument action
-  * Moving main() functions from class to module
-  * ... and removing staticmethod ...
-  * ... and fixing typo ...
-  * Fixing bug generating subgrids in reverse order
-  * Adding version number to name in bin file
-
- -- Chris Crook <ccrook@linz.govt.nz>  Fri, 29 Jul 2016 10:09:36 +1200
